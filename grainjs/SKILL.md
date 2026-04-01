@@ -73,6 +73,29 @@ const sum2 = Computed.create(owner, obs1, obs2,
 
 GrainJS recalculates computeds in dependency order. If `total` depends on `tax` and `tip`, which both depend on `amount`, changing `amount` recalculates `tax`, then `tip`, then `total`.
 
+### onWrite — writable computed
+
+By default, calling `set()` on a computed throws an error. Use `.onWrite()` to make it writable — the callback is invoked whenever `set()` is called:
+
+```typescript
+const bothCheck = Computed.create(owner, obsCheck1, obsCheck2, (_use, c1, c2) => {
+  if (c1 && c2) return true;
+  if (c1 || c2) return 'indeterminate';
+  return false;
+}).onWrite((val) => {
+  if (val === 'indeterminate') return;
+  obsCheck1.set(val);
+  obsCheck2.set(val);
+});
+
+// Now you can write to it:
+bothCheck.set(true);  // calls onWrite, which updates obsCheck1 and obsCheck2
+```
+
+Returns the computed instance for chaining.
+
+---
+
 ### bundleChanges
 
 Defer computed recalculation until multiple observables are updated:

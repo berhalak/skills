@@ -160,6 +160,63 @@ VERBOSE=1 ./test/testrun.sh nbrowser
 
 ---
 
+## Diagnosing & Fixing Flaky Tests
+
+Flaky tests are almost always caused by **timing assumptions** — the test proceeds before the UI/server is ready. Chrome upgrades can change event dispatch timing and expose latent races.
+
+### Diagnosis Checklist
+
+1. **Read the assertion error carefully** — what value did it get vs. expected? A stale/previous value means the UI hasn't updated yet. A wrong value means prior test state leaked.
+2. **Check the previous test** — tests within a `describe` share state. If the previous test set a filter, changed a view, or modified data, those side effects carry into the failing test.
+3. **Look at the line before the failure** — usually a click, sendKeys, or filter operation that hasn't settled before the assertion runs.
+
+### Common Flaky Patterns & Fixes
+
+| Pattern | Problem | Fix |
+|---|---|---|
+| `click()` then `sendKeys()` | Focus hasn't landed yet | Add `await gu.waitAppFocus()` between them |
+| `click()` on select then `findContent(".test-select-menu li", ...)` | Dropdown menu not in DOM yet | Add `await driver.findWait(".test-select-menu", 500)` after click |
+| `sendKeys(Key.ENTER)` to commit an edit | Server hasn't processed the change | Use `await gu.sendKeys(Key.ENTER); await gu.waitForServer()` |
+| `sendKeys(date, Key.TAB, time)` in DateTime fields | TAB transitions between date/time inputs; too fast loses keystrokes | Use `gu.sendKeysSlowly(date, Key.TAB, time)` or split into separate `sendKeys` calls with `driver.sleep(50)` between them |
+| Multi-step input (ChoiceList entries) | Each ENTER creates a new token; next value typed before token settles | Add `driver.sleep(50)` between entries |
+| `.isDisplayed()` on transient element (tooltip, notification) | Element not in DOM yet or still animating | Use `driver.findWait(selector, 200)` + `gu.waitToPass(() => assert.isTrue(...), 500)` with try/catch |
+| `removeFilters()` then immediately interact | Filters haven't fully cleared | Add `await gu.waitForServer()` after, optionally verify with `waitToPass` that expected rows are visible |
+| Opening editor then reading its value | Ace editor or text editor not ready | Add `await gu.waitForAceEditor()` or wait for the editor element |
+| Prior test's state leaking | Filter/selection from previous `it()` persists | Add a guard assertion (via `waitToPass`) at the start of the test to confirm expected state |
+
+### Key Utility Functions for Stability
+
+```typescript
+// Wait for app to have focus before typing
+await gu.waitAppFocus();
+
+// Wait for element to appear in DOM
+await driver.findWait(".some-selector", 500);
+
+// Retry an assertion until it passes (or timeout)
+await gu.waitToPass(async () => {
+  assert.equal(await gu.getCell("A", 1).getText(), "expected");
+}, 1000);
+
+// Wait for server round-trip after data changes
+await gu.waitForServer();
+
+// Send keys with delays between them (for multi-part inputs)
+await gu.sendKeysSlowly(value1, Key.TAB, value2);
+
+// Wait for Ace formula editor to be ready
+await gu.waitForAceEditor();
+```
+
+### General Principles
+
+- **Never assume focus** — always `waitAppFocus()` after clicking a cell before sending keys.
+- **Never assume DOM presence** — use `findWait` for elements that appear asynchronously (menus, tooltips, editors).
+- **Never assume server state** — call `waitForServer()` after any action that triggers a server round-trip (Enter to commit, filter changes, undo).
+- **Verify preconditions** — if a test depends on state from a prior test, add a `waitToPass` guard at the top to confirm that state is correct before proceeding.
+
+---
+
 ## Common Mistakes
 
 | Mistake | Fix |
