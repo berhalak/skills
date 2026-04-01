@@ -136,10 +136,10 @@ await session.loadDoc(`/doc/${docId}`);
 
 ```bash
 # All nbrowser tests
-./test/testrun.sh nbrowser
+OUTPUTS=$(mktemp -d) GRIST_SANDBOX_FLAVOR=unsandboxed test/jenkins-env.sh  ./test/testrun.sh nbrowser
 
-# Filter by test name
-GREP_TESTS="MyFeature" ./test/testrun.sh nbrowser
+# Filter by test name in nbrowser suite
+OUTPUTS=$(mktemp -d) GRIST_SANDBOX_FLAVOR=unsandboxed GREP_TESTS="MyFeature" test/jenkins-env.sh ./test/testrun.sh nbrowser
 
 # Debug mode (REPL on failure, screenshots)
 DEBUG=1 ./test/testrun.sh nbrowser
