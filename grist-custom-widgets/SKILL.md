@@ -71,11 +71,94 @@ Add an entry to the root `manifest.json` with the same fields as `grist` in pack
 
 ## Core API
 
+Full TypeScript definitions available at `inspect/grist-plugin-api.d.ts` in the grist-widget repo. Interactive API explorer at `inspect/api.html`.
+
+### Initialization
+
+```javascript
+// Declare widget is ready. Grist won't communicate until this is called.
+grist.ready({
+  requiredAccess: 'full',          // 'none' | 'read table' | 'full'
+  columns: ['Link', 'Title'],      // optional column mappings
+  onEditOptions: () => { ... },    // optional: shows "Open configuration" button
+});
+```
+
+### Event Handlers
+
+```javascript
+// Called when table data changes. Row-oriented objects.
+// Only includes columns with fields in the widget's view section.
+grist.onRecords((records, mappings) => { ... });
+
+// Called when cursor row changes.
+grist.onRecord((record, mappings) => { ... });
+
+// Called when the new (blank) row is selected.
+grist.onNewRecord((mappings) => { ... });
+
+// Called when widget options change (and on initial ready).
+grist.onOptions((customOptions, interactionOptions) => { ... });
+
+// Get tableId from message events.
+grist.on('message', (e) => { if (e.tableId) { ... } });
+```
+
 ### Reading Data
 
 - `grist.onRecords(callback)` — called when table data changes. Returns row-oriented objects. **Only includes columns that have fields in the widget's view section** (see "View Section Fields" below).
-- `grist.docApi.fetchTable(tableId)` — returns column-oriented data: `{ id: [...], colName: [...], ... }`. Always returns all columns.
-- `grist.docApi.fetchTable('_grist_Tables')` — read metadata tables.
+- `grist.onRecord(callback)` — called when cursor position changes. Returns single row-oriented object.
+- `grist.docApi.fetchTable(tableId)` — returns column-oriented data: `{ id: [...], colName: [...], ... }`. Always returns all columns. Requires `'full'` access.
+- `grist.docApi.fetchSelectedTable()` — returns data for the widget's section. Requires `'read table'` access.
+- `grist.docApi.fetchSelectedRecord(rowId)` — reads a single row by id. Requires `'read table'` access.
+- `grist.docApi.listTables()` — returns sorted list of table IDs. Requires `'read table'` access.
+- `grist.docApi.fetchTable('_grist_Tables')` — read metadata tables. Requires `'full'` access.
+- `grist.docApi.getAccessToken({readOnly: true})` — get token for REST API calls outside the widget API. Returns `{token, baseUrl, ttlMsecs}`.
+
+### Column Mappings
+
+When `columns` is specified in `grist.ready()`, use `grist.mapColumnNames()` to remap record fields:
+
+```javascript
+grist.ready({ columns: ['Link', 'Title'], requiredAccess: 'read table' });
+grist.onRecord((record, mappings) => {
+  const mapped = grist.mapColumnNames(record);
+  if (mapped) {
+    // mapped.Link, mapped.Title available
+  }
+});
+```
+
+Column definitions can be strings or objects:
+```javascript
+{ name: 'Amount', title: 'Sale Amount', type: 'Numeric', optional: true, allowMultiple: false }
+```
+
+### Widget Options (Key-Value Store)
+
+```javascript
+await grist.setOption('key', 'value');    // save
+const val = await grist.getOption('key'); // read one
+const all = await grist.getOptions();     // read all
+await grist.clearOptions();               // clear all
+```
+
+### Table Operations
+
+```javascript
+const table = grist.getTable('TableName'); // or grist.selectedTable
+await table.create({ fields: { Col1: 'val' } });
+await table.update({ id: rowId, fields: { Col1: 'new' } });
+await table.destroy(rowId);
+```
+
+### SELECT BY (Widget Linking)
+
+```javascript
+grist.ready({ allowSelectBy: true });
+// Later, set selected rows to drive linked widgets:
+await grist.setSelectedRows([1, 3, 5]);
+```
 
 ### Writing Data — applyUserActions
 
