@@ -82,7 +82,7 @@ Three builds export different `create: ICreate` singletons from `create.ts`:
 
 ### The Action Protocol (Critical)
 
-ALL document mutations use: `UserAction[]` → Python sandbox → `DocAction[]`. Never bypass this — it powers undo/redo, ACL, replication, and real-time sync.
+ALL document mutations use: `UserAction[]` → Python sandbox → `DocAction[]`. Never bypass this — it powers undo/redo, ACL, replication, and real-time sync. For the full UserAction catalog, return values, REST endpoint, and engine internals see @engine.md in this skill's directory.
 
 ### Client-Server Communication
 
@@ -167,3 +167,5 @@ npm run generate:schema:ts # Regen schema.ts from Python
 ## Deep Reference
 
 For detailed execution flows, auth flow specifics, full module inventories, testing patterns, debug workflows, and areas not fully investigated, see @reference.md in this skill's directory.
+
+For the action protocol (UserActions, DocActions, the `/apply` REST endpoint, every UserAction's signature and return shape, and engine internals) see @engine.md.
